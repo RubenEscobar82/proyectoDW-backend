@@ -7,8 +7,11 @@ var usuariosRouter = require('./routes/usuarios-router');
 var carpetasRouter = require('./routes/carpetas-router');
 var proyectosRouter = require('./routes/proyectos-router');
 var snippetsRouter = require('./routes/snippets-router');
+var exploreRouter = require('./routes/explore-router');
 var deletedRouter = require('./routes/deleted-router');
+var pinnedRouter = require('./routes/pinned-router');
 var cookieParser = require('cookie-parser');
+
 const port = '8888';
 
 //Middlewares:
@@ -25,6 +28,8 @@ app.use('/carpetas', carpetasRouter);
 app.use('/proyectos', proyectosRouter);
 app.use('/snippets', snippetsRouter);
 app.use('/deleted', deletedRouter);
+app.use('/explore', exploreRouter);
+app.use('/pinned', pinnedRouter);
 //Fin-Rutas
 
 //Servidor

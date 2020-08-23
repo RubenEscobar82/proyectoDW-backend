@@ -20,35 +20,53 @@ router.post('/', (req, res)=>{
                 usuarios.find({_id: decoded.id})                
                 .then(userData =>{
                     if (userData.length==1){
-                        let snippetId = new mongoose.mongo.ObjectID();
-                        let createdAt = new Date();
-                        let newSnippet = {
-                            _id: snippetId,
-                            name: req.body.name,
-                            language: req.body.language,
-                            type: 'snippet',
-                            createdAt: createdAt.toLocaleString(),
-                            updatedAt: createdAt.toLocaleString(),
-                            content: "",
-                            public: false
-                        };                        
-                        usuarios.updateOne({"carpetas._id": mongoose.mongo.ObjectID(req.body['folderId'])},
-                            {"$push": {"carpetas.$.content": newSnippet}}, function(err, val) {
-                                if(!err){
-                                    res.send({
-                                        ok: 1,
-                                        snippetId: snippetId
-                                    });
-                                    res.end();
+                        let snippetsCount=0;
+                        let max = 5;
+                        if(userData[0].pro){
+                            max=50;
+                        }
+                        for(let carpeta of userData[0].carpetas){
+                            for(let content of carpeta.content){
+                                if(content.type==='snippet'){
+                                    snippetsCount=snippetsCount+1;
                                 }
-                                else{
-                                    res.send({
-                                        ok: 0,
-                                        error: 'saveError'
-                                    });
-                                    res.end();
-                                }
-                        });                        
+                            }                   
+                        }
+                        if(snippetsCount<max){
+                            let snippetId = new mongoose.mongo.ObjectID();
+                            let createdAt = new Date();
+                            let newSnippet = {
+                                _id: snippetId,
+                                name: req.body.name,
+                                language: req.body.language,
+                                type: 'snippet',
+                                createdAt: createdAt.toLocaleString(),
+                                updatedAt: createdAt.toLocaleString(),
+                                content: "",
+                                public: false
+                            };                        
+                            usuarios.updateOne({"carpetas._id": mongoose.mongo.ObjectID(req.body['folderId'])},
+                                {"$push": {"carpetas.$.content": newSnippet}}, function(err, val) {
+                                    if(!err){
+                                        res.send({
+                                            ok: 1,
+                                            snippetId: snippetId
+                                        });
+                                        res.end();
+                                    }
+                                    else{
+                                        res.send({
+                                            ok: 0,
+                                            error: 'saveError'
+                                        });
+                                        res.end();
+                                    }
+                            });
+                        }
+                        else{
+                            res.send({ok:0, error: 'snippetsCount', pro: userData[0].pro});
+                            res.end();
+                        }                      
                     }
                 })
                 .catch(error =>{
@@ -95,8 +113,8 @@ router.get('/:folderId/:snippetId', function(req, res){
                                     'filteredValue':{
                                         $filter: {
                                             input: "$carpetas.content",
-                                            as: "proyRequerido",
-                                            cond: { $eq: [ '$$proyRequerido._id', mongoose.mongo.ObjectId(req.params['snippetId']) ] }
+                                            as: "solicited",
+                                            cond: { $eq: [ '$$solicited._id', mongoose.mongo.ObjectId(req.params['snippetId']) ] }
                                         }
                                     }
                                 }
@@ -131,8 +149,6 @@ router.get('/:folderId/:snippetId', function(req, res){
     }
 });
 router.put('/', (req, res)=>{
-    console.log("solicitud de actualizacion");
-    console.log(req.body);
     if(req.cookies['visagejsUserToken']){
         jwt.verify(req.cookies['visagejsUserToken'], 'secret', async (err, decoded)=>{
             if(err){

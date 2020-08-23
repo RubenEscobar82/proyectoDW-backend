@@ -46,6 +46,10 @@ router.post('/', (req, res) => {
                             // You can't access these tokens in the client's javascript
                               httpOnly: false
                              });
+                             res.cookie('userName', req.body.userName, { maxAge:  48* 60 * 60 * 1000,
+                                // You can't access these tokens in the client's javascript
+                                  httpOnly: false
+                                 });
                         res.send({
                             ok: 1
                         });
@@ -89,6 +93,7 @@ router.post('/signin', (req, res) => {
                 //let visageUserToken = jwt.sign(coincidence[0].toJSON(),'secret');
                 let visageUserToken = jwt.sign({id: coincidence[0]._id},'secret');
                 res.cookie('visagejsUserToken', visageUserToken, { maxAge:  48* 60 * 60 * 1000, httpOnly: false});
+                res.cookie('userName', coincidence[0].username, { maxAge:  48* 60 * 60 * 1000, httpOnly: false});
                 res.send({
                     ok:1
                 });
@@ -111,19 +116,311 @@ router.post('/signin', (req, res) => {
     });
 });
 router.get('/', (req, res)=>{
-    usuario.find().then(result =>{
-        if(result.length>0){
-            res.send(result);
-            res.end();
-        }
-        else{
-            res.send("No hay usuarios registrados");
-            res.end();
-        }
-    }).catch(error => {
-        res.send("**Se produjo un error al realizar la consulta");
-        res.end();
-    })    
+    if(req.cookies['visagejsUserToken']){
+        jwt.verify(req.cookies['visagejsUserToken'], 'secret', async (err, decoded)=>{
+            if(err){
+                res.json({
+                    ok:0,
+                    error: 'tokenError'
+                });
+                res.end();
+            }
+            else{
+                usuarios.find({_id: decoded.id})
+                .then(userData =>{
+                    if (userData.length==1){
+                        let response = {
+                            username: userData[0].username,
+                            email: userData[0].email,
+                            pro: userData[0].pro,
+                            tarjeta: userData[0].tarjeta
+                        }
+                        res.send({
+                            ok:1,
+                            userData: response
+                        });
+                        res.end();
+                    }
+                    else{
+                        res.send({
+                            ok: 0,
+                            error: 'idError'
+                        });
+                        res.end();
+                    }
+                }).catch(error =>{
+                    res.send({
+                        ok:0,
+                        error: error
+                    });
+                    res.end();
+                });
+            }
+        });
+    }
+});
+
+router.put('/general_config', (req, res) => {
+    if(req.cookies['visagejsUserToken']){
+        jwt.verify(req.cookies['visagejsUserToken'], 'secret', async (err, decoded)=>{
+            if(err){
+                res.json({
+                    ok:0,
+                    error: 'tokenError'
+                });
+                res.end();
+            }
+            else{
+                usuarios.find({_id: decoded.id})
+                .then(userData =>{
+                    if (userData.length==1){
+                        usuarios.updateOne(
+                            {_id: decoded.id},
+                            {'$set': req.body.data},
+                            function(err1, val1){
+                                if(!err1){
+                                    res.send({ok:1});
+                                    res.end();
+                                }
+                                else{
+                                    res.send({ok:0, error: err1});
+                                    res.end();
+                                }
+                            }
+                        );
+                    }
+                    else{
+                        res.send({
+                            ok: 0,
+                            error: 'idError'
+                        });
+                        res.end();
+                    }
+                }).catch(error =>{
+                    res.send({
+                        ok:0,
+                        error: error
+                    });
+                    res.end();
+                });                
+            }
+        });
+    }
+});
+
+router.put('/security_config', (req, res) => {
+    if(req.cookies['visagejsUserToken']){
+        jwt.verify(req.cookies['visagejsUserToken'], 'secret', async (err, decoded)=>{
+            if(err){
+                res.json({
+                    ok:0,
+                    error: 'tokenError'
+                });
+                res.end();
+            }
+            else{
+                usuarios.find({_id: decoded.id})
+                .then(userData =>{
+                    if (userData.length==1){
+                        if(bcrypt.compareSync(req.body.data.currentPassword, userData[0].password)){
+                            bcrypt.hash(req.body.data.newPassword, 10, (err1, hash) => {
+                                usuarios.updateOne(
+                                    {_id: decoded.id},
+                                    {'$set': {'password': hash}},
+                                    function(err2, val2){
+                                        if(!err2){
+                                            res.send({ok:1});
+                                            res.end();
+                                        }
+                                        else{
+                                            res.send({ok:0, error: err2});
+                                            res.end();
+                                        }
+                                    }
+                                );
+                            });
+                        }
+                        else{
+                            res.send({
+                                ok:0,
+                                error: 'passwordError'
+                            });
+                            res.end();
+                        }
+                    }
+                    else{
+                        res.send({
+                            ok: 0,
+                            error: 'idError'
+                        });
+                        res.end();
+                    }
+                }).catch(error =>{
+                    res.send({
+                        ok:0,
+                        error: error
+                    });
+                    res.end();
+                });                
+            }
+        });
+    }
+});
+
+router.put('/plan_config', (req, res) => {
+    if(req.cookies['visagejsUserToken']){
+        jwt.verify(req.cookies['visagejsUserToken'], 'secret', async (err, decoded)=>{
+            if(err){
+                res.json({
+                    ok:0,
+                    error: 'tokenError'
+                });
+                res.end();
+            }
+            else{
+                usuarios.find({_id: decoded.id})
+                .then(userData =>{
+                    if (userData.length==1){
+                        let carpetas = [
+                            {
+                                name: "Elementos restaurados",
+                                _id: "restored-elements",
+                                content: []
+                            }
+                        ];
+                        usuarios.updateOne(
+                            {_id: decoded.id},
+                            {'$set': {
+                                'carpetas': carpetas,
+                                'papelera': [],
+                                'fiajados': [],
+                                'pro': req.body.pro
+                            }},
+                            function(err1, val1){
+                                if(!err1){
+                                    res.send({ok:1});
+                                    res.end();
+                                }
+                                else{
+                                    res.send({ok:0, error: err1});
+                                    res.end();
+                                }
+                            }
+                        );
+                    }
+                    else{
+                        res.send({
+                            ok: 0,
+                            error: 'idError'
+                        });
+                        res.end();
+                    }
+                }).catch(error =>{
+                    res.send({
+                        ok:0,
+                        error: error
+                    });
+                    res.end();
+                });                
+            }
+        });
+    }
+});
+
+router.put('/card_config', (req, res) => {
+    if(req.cookies['visagejsUserToken']){
+        jwt.verify(req.cookies['visagejsUserToken'], 'secret', async (err, decoded)=>{
+            if(err){
+                res.json({
+                    ok:0,
+                    error: 'tokenError'
+                });
+                res.end();
+            }
+            else{
+                usuarios.find({_id: decoded.id})
+                .then(userData =>{
+                    if (userData.length==1){
+                        usuarios.updateOne(
+                            {_id: decoded.id},
+                            {'$set': {
+                                'tarjeta': req.body.data
+                            }},
+                            function(err1, val1){
+                                if(!err1){
+                                    res.send({ok:1});
+                                    res.end();
+                                }
+                                else{
+                                    res.send({ok:0, error: err1});
+                                    res.end();
+                                }
+                            }
+                        );
+                    }
+                    else{
+                        res.send({
+                            ok: 0,
+                            error: 'idError'
+                        });
+                        res.end();
+                    }
+                }).catch(error =>{
+                    res.send({
+                        ok:0,
+                        error: error
+                    });
+                    res.end();
+                });                
+            }
+        });
+    }
+});
+
+router.delete('/', (req, res) => {
+    if(req.cookies['visagejsUserToken']){
+        jwt.verify(req.cookies['visagejsUserToken'], 'secret', async (err, decoded)=>{
+            if(err){
+                res.json({
+                    ok:0,
+                    error: 'tokenError'
+                });
+                res.end();
+            }
+            else{
+                usuarios.find({_id: decoded.id})
+                .then(userData =>{
+                    if (userData.length==1){
+                        usuarios.remove(
+                            {_id: decoded.id},
+                            function(err1){
+                                if(!err1){
+                                    res.send({ok:1});
+                                    res.end();
+                                }
+                                else{
+                                    res.send({ok:0, error: err1});
+                                    res.end();
+                                }
+                            });
+                    }
+                    else{
+                        res.send({
+                            ok: 0,
+                            error: 'idError'
+                        });
+                        res.end();
+                    }
+                }).catch(error =>{
+                    res.send({
+                        ok:0,
+                        error: error
+                    });
+                    res.end();
+                });                
+            }
+        });
+    }
 });
 
 module.exports = router;
